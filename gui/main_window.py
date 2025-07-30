@@ -8,7 +8,7 @@ class MainWindow:
         self.root = tk.Tk()
         self.setup_window()
         self.setup_widgets()
-        self.current_view = "main"
+        self.current_view = "profiles"
         self.is_maximized = False
     
     def setup_window(self):
@@ -27,6 +27,7 @@ class MainWindow:
         self.create_main_container()
         self.create_left_panel()
         self.create_right_panel()
+        self.show_profiles_view()
         self.root.bind("<Button-1>", self.on_click_outside)
     
     def create_custom_title_bar(self):
@@ -44,24 +45,12 @@ class MainWindow:
         close_btn = tk.Button(control_frame, text='×', font=('Arial', 14, 'bold'), fg='white', bg='#ff4444', relief='flat', width=3, command=self.close_window)
         close_btn.pack(side='left')
         self.bind_title_bar_events(title_label)
-        def on_minimize_hover(event):
-            minimize_btn.configure(bg='#404040')
-        def on_minimize_leave(event):
-            minimize_btn.configure(bg='#2b2b2b')
-        def on_maximize_hover(event):
-            self.maximize_btn.configure(bg='#404040')
-        def on_maximize_leave(event):
-            self.maximize_btn.configure(bg='#2b2b2b')
-        def on_close_hover(event):
-            close_btn.configure(bg='#ff6666')
-        def on_close_leave(event):
-            close_btn.configure(bg='#ff4444')
-        minimize_btn.bind("<Enter>", on_minimize_hover)
-        minimize_btn.bind("<Leave>", on_minimize_leave)
-        self.maximize_btn.bind("<Enter>", on_maximize_hover)
-        self.maximize_btn.bind("<Leave>", on_maximize_leave)
-        close_btn.bind("<Enter>", on_close_hover)
-        close_btn.bind("<Leave>", on_close_leave)
+        minimize_btn.bind("<Enter>", lambda e: minimize_btn.configure(bg='#404040'))
+        minimize_btn.bind("<Leave>", lambda e: minimize_btn.configure(bg='#2b2b2b'))
+        self.maximize_btn.bind("<Enter>", lambda e: self.maximize_btn.configure(bg='#404040'))
+        self.maximize_btn.bind("<Leave>", lambda e: self.maximize_btn.configure(bg='#2b2b2b'))
+        close_btn.bind("<Enter>", lambda e: close_btn.configure(bg='#ff6666'))
+        close_btn.bind("<Leave>", lambda e: close_btn.configure(bg='#ff4444'))
     
     def bind_title_bar_events(self, title_widget):
         title_widget.bind('<Button-1>', self.start_move)
@@ -108,60 +97,60 @@ class MainWindow:
         self.left_frame.pack_propagate(False)
         title_label = tk.Label(self.left_frame, text="Automation Tool", font=('Arial', 16, 'bold'), fg='white', bg='#404040')
         title_label.pack(pady=(20, 30), padx=10)
+        self.menu_buttons = {}
         self.create_menu_item("👥 Profiles", "profiles")
         self.create_menu_item("🤖 Auto", "auto")
         self.create_menu_item("🔍 Explore", "explore")
-        self.create_menu_item("⚙️ Setting", "setting")
+        self.create_menu_item("💰 Selling", "selling")
     
     def create_menu_item(self, text, menu_id):
         menu_frame = tk.Frame(self.left_frame, bg='#404040')
         menu_frame.pack(fill='x', padx=5, pady=2)
         menu_label = tk.Label(menu_frame, text=text, font=('Arial', 12), fg='white', bg='#404040', anchor='w')
         menu_label.pack(fill='x', padx=15, pady=8)
-        def on_click(event):
-            self.on_menu_clicked(menu_id)
-        menu_label.bind("<Button-1>", on_click)
-        menu_frame.bind("<Button-1>", on_click)
-        def on_enter(event):
-            menu_label.configure(bg='#505050')
-            menu_frame.configure(bg='#505050')
-        def on_leave(event):
-            menu_label.configure(bg='#404040')
-            menu_frame.configure(bg='#404040')
-        menu_label.bind("<Enter>", on_enter)
-        menu_label.bind("<Leave>", on_leave)
-        menu_frame.bind("<Enter>", on_enter)
-        menu_frame.bind("<Leave>", on_leave)
+        self.menu_buttons[menu_id] = {'frame': menu_frame, 'label': menu_label}
+        menu_label.bind("<Button-1>", lambda e: self.on_menu_clicked(menu_id))
+        menu_frame.bind("<Button-1>", lambda e: self.on_menu_clicked(menu_id))
+        menu_label.bind("<Enter>", lambda e: self.set_menu_hover(menu_id, True))
+        menu_label.bind("<Leave>", lambda e: self.set_menu_hover(menu_id, False))
+        menu_frame.bind("<Enter>", lambda e: self.set_menu_hover(menu_id, True))
+        menu_frame.bind("<Leave>", lambda e: self.set_menu_hover(menu_id, False))
+    
+    def set_menu_hover(self, menu_id, is_hover):
+        if self.current_view == menu_id:
+            return
+        color = '#505050' if is_hover else '#404040'
+        self.menu_buttons[menu_id]['label'].configure(bg=color)
+        self.menu_buttons[menu_id]['frame'].configure(bg=color)
+    
+    def set_menu_active(self, menu_id):
+        for mid, widgets in self.menu_buttons.items():
+            if mid == menu_id:
+                widgets['label'].configure(bg='#606060')
+                widgets['frame'].configure(bg='#606060')
+            else:
+                widgets['label'].configure(bg='#404040')
+                widgets['frame'].configure(bg='#404040')
     
     def create_right_panel(self):
         self.right_frame = tk.Frame(self.main_container, bg='#f0f0f0')
         self.right_frame.pack(side='right', fill='both', expand=True, padx=0, pady=0)
-        self.create_tab_header()
-        self.create_content_area()
     
-    def create_tab_header(self):
+    def create_profiles_tab_header(self):
         self.tab_header_frame = tk.Frame(self.right_frame, bg='#e0e0e0', height=80)
         self.tab_header_frame.pack(fill='x')
         self.tab_header_frame.pack_propagate(False)
-        
         self.ldplayer_tab = tk.Label(self.tab_header_frame, text="Emulator", font=('Arial', 14), fg='black', bg='white', relief='solid', bd=1, cursor="hand2")
         self.ldplayer_tab.pack(side='left', padx=2, pady=20, ipadx=25, ipady=10)
         self.ldplayer_tab.bind("<Button-1>", self.toggle_dropdown)
-        
         self.dropdown_menu = tk.Frame(self.root, bg='white', relief='solid', bd=1)
         self.dropdown_visible = False
-        
         dropdown_options = ["Emulator", "Phone", "Trình duyệt"]
         for option in dropdown_options:
             option_btn = tk.Button(self.dropdown_menu, text=option, font=('Arial', 14), fg='black', bg='white', relief='flat', anchor='w', padx=20, pady=5, cursor="hand2", command=lambda opt=option: self.select_dropdown_option(opt))
             option_btn.pack(fill='x')
-            def on_option_enter(event, btn=option_btn):
-                btn.configure(bg='#e0e0e0')
-            def on_option_leave(event, btn=option_btn):
-                btn.configure(bg='white')
-            option_btn.bind("<Enter>", on_option_enter)
-            option_btn.bind("<Leave>", on_option_leave)
-        
+            option_btn.bind("<Enter>", lambda e, btn=option_btn: btn.configure(bg='#e0e0e0'))
+            option_btn.bind("<Leave>", lambda e, btn=option_btn: btn.configure(bg='white'))
         self.directbot_tab = tk.Label(self.tab_header_frame, text="DIRECTBOT", font=('Arial', 14), fg='black', bg='#e0e0e0', relief='solid', bd=1)
         self.directbot_tab.pack(side='left', padx=2, pady=20, ipadx=25, ipady=10)
     
@@ -197,17 +186,36 @@ class MainWindow:
     
     def select_dropdown_option(self, option):
         self.hide_dropdown()
+        self.ldplayer_tab.configure(text=option)
         if option == "Phone":
-            self.current_view = "phone"
-            self.show_phone_view()
+            self.show_phone_content()
         elif option == "Emulator":
-            self.current_view = "emulator"
-            self.show_emulator_view()
+            self.show_emulator_content()
         elif option == "Trình duyệt":
-            self.current_view = "browser"
-            self.show_browser_view()
+            self.show_browser_content()
     
-    def create_content_area(self):
+    def clear_right_panel(self):
+        for widget in self.right_frame.winfo_children():
+            widget.destroy()
+    
+    def on_menu_clicked(self, menu_id):
+        self.current_view = menu_id
+        self.set_menu_active(menu_id)
+        if menu_id == "profiles":
+            self.show_profiles_view()
+        elif menu_id == "auto":
+            self.show_auto_view()
+        elif menu_id == "explore":
+            self.show_explore_view()
+        elif menu_id == "selling":
+            self.show_selling_view()
+    
+    def show_profiles_view(self):
+        self.clear_right_panel()
+        self.create_profiles_tab_header()
+        self.create_profiles_content()
+    
+    def create_profiles_content(self):
         self.content_area = tk.Frame(self.right_frame, bg='white')
         self.content_area.pack(fill='both', expand=True, padx=5, pady=5)
         self.create_profile_table()
@@ -245,54 +253,44 @@ class MainWindow:
         add_profile_btn = tk.Button(self.bottom_frame, text="Thêm Profile", font=('Arial', 10), bg='#4CAF50', fg='white', relief='flat', padx=15, pady=5)
         add_profile_btn.pack(side='right', padx=10, pady=10)
     
-    def on_menu_clicked(self, menu_id):
-        if menu_id == "profiles":
-            self.show_profiles_view()
-        elif menu_id == "auto":
-            self.show_auto_view()
-        elif menu_id == "explore":
-            self.show_explore_view()
-        elif menu_id == "setting":
-            self.show_setting_view()
-    
-    def show_profiles_view(self):
-        pass
-    
-    def show_auto_view(self):
-        for widget in self.content_area.winfo_children():
-            widget.destroy()
-        auto_label = tk.Label(self.content_area, text="AUTO AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        auto_label.pack(pady=50)
-    
-    def show_explore_view(self):
-        for widget in self.content_area.winfo_children():
-            widget.destroy()
-        explore_label = tk.Label(self.content_area, text="EXPLORE SECTION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        explore_label.pack(pady=50)
-    
-    def show_setting_view(self):
-        for widget in self.content_area.winfo_children():
-            widget.destroy()
-        setting_label = tk.Label(self.content_area, text="SETTING PANEL", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        setting_label.pack(pady=50)
-    
-    def show_phone_view(self):
+    def show_phone_content(self):
         for widget in self.content_area.winfo_children():
             widget.destroy()
         phone_label = tk.Label(self.content_area, text="PHONE AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        phone_label.pack(pady=50)
+        phone_label.pack(expand=True)
     
-    def show_emulator_view(self):
+    def show_emulator_content(self):
         for widget in self.content_area.winfo_children():
             widget.destroy()
         emulator_label = tk.Label(self.content_area, text="EMULATOR AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        emulator_label.pack(pady=50)
+        emulator_label.pack(expand=True)
     
-    def show_browser_view(self):
+    def show_browser_content(self):
         for widget in self.content_area.winfo_children():
             widget.destroy()
         browser_label = tk.Label(self.content_area, text="BROWSER AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        browser_label.pack(pady=50)
+        browser_label.pack(expand=True)
+    
+    def show_auto_view(self):
+        self.clear_right_panel()
+        content_area = tk.Frame(self.right_frame, bg='white')
+        content_area.pack(fill='both', expand=True)
+        auto_label = tk.Label(content_area, text="AUTO AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
+        auto_label.pack(expand=True)
+    
+    def show_explore_view(self):
+        self.clear_right_panel()
+        content_area = tk.Frame(self.right_frame, bg='white')
+        content_area.pack(fill='both', expand=True)
+        explore_label = tk.Label(content_area, text="EXPLORE SECTION", font=('Arial', 20, 'bold'), fg='black', bg='white')
+        explore_label.pack(expand=True)
+    
+    def show_selling_view(self):
+        self.clear_right_panel()
+        content_area = tk.Frame(self.right_frame, bg='white')
+        content_area.pack(fill='both', expand=True)
+        selling_label = tk.Label(content_area, text="SELLING PANEL", font=('Arial', 20, 'bold'), fg='black', bg='white')
+        selling_label.pack(expand=True)
     
     def run(self):
         self.root.mainloop()

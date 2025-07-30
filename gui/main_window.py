@@ -27,6 +27,7 @@ class MainWindow:
         self.create_main_container()
         self.create_left_panel()
         self.create_right_panel()
+        self.root.bind("<Button-1>", self.on_click_outside)
     
     def create_custom_title_bar(self):
         self.title_bar_frame = tk.Frame(self.root, bg='#404040', height=40)
@@ -111,18 +112,6 @@ class MainWindow:
         self.create_menu_item("🤖 Auto", "auto")
         self.create_menu_item("🔍 Explore", "explore")
         self.create_menu_item("⚙️ Setting", "setting")
-        profile_label = tk.Label(self.left_frame, text="Profile", font=('Arial', 12), fg='white', bg='#404040')
-        profile_label.pack(anchor='w', padx=20, pady=(40, 5))
-        self.profile_var = tk.StringVar()
-        profile_options = ["Chọn nền tảng", "Phone", "Emulator", "Trình duyệt"]
-        style = ttk.Style()
-        style.theme_use('clam')
-        style.configure('Custom.TCombobox', fieldbackground='#4a4a4a', background='#4a4a4a', foreground='white', borderwidth=1, relief='solid')
-        style.map('Custom.TCombobox', fieldbackground=[('readonly', '#4a4a4a')], selectbackground=[('readonly', '#5a5a5a')])
-        self.profile_combo = ttk.Combobox(self.left_frame, textvariable=self.profile_var, values=profile_options, font=('Arial', 10), width=15, state='readonly', style='Custom.TCombobox')
-        self.profile_combo.pack(padx=20, pady=5)
-        self.profile_combo.set("Chọn nền tảng")
-        self.profile_combo.bind('<<ComboboxSelected>>', self.on_profile_selected)
     
     def create_menu_item(self, text, menu_id):
         menu_frame = tk.Frame(self.left_frame, bg='#404040')
@@ -154,10 +143,69 @@ class MainWindow:
         self.tab_header_frame = tk.Frame(self.right_frame, bg='#e0e0e0', height=80)
         self.tab_header_frame.pack(fill='x')
         self.tab_header_frame.pack_propagate(False)
-        self.ldplayer_tab = tk.Label(self.tab_header_frame, text="LDPlayer", font=('Arial', 14), fg='black', bg='white', relief='solid', bd=1)
+        
+        self.ldplayer_tab = tk.Label(self.tab_header_frame, text="Emulator", font=('Arial', 14), fg='black', bg='white', relief='solid', bd=1, cursor="hand2")
         self.ldplayer_tab.pack(side='left', padx=2, pady=20, ipadx=25, ipady=10)
+        self.ldplayer_tab.bind("<Button-1>", self.toggle_dropdown)
+        
+        self.dropdown_menu = tk.Frame(self.root, bg='white', relief='solid', bd=1)
+        self.dropdown_visible = False
+        
+        dropdown_options = ["Emulator", "Phone", "Trình duyệt"]
+        for option in dropdown_options:
+            option_btn = tk.Button(self.dropdown_menu, text=option, font=('Arial', 14), fg='black', bg='white', relief='flat', anchor='w', padx=20, pady=5, cursor="hand2", command=lambda opt=option: self.select_dropdown_option(opt))
+            option_btn.pack(fill='x')
+            def on_option_enter(event, btn=option_btn):
+                btn.configure(bg='#e0e0e0')
+            def on_option_leave(event, btn=option_btn):
+                btn.configure(bg='white')
+            option_btn.bind("<Enter>", on_option_enter)
+            option_btn.bind("<Leave>", on_option_leave)
+        
         self.directbot_tab = tk.Label(self.tab_header_frame, text="DIRECTBOT", font=('Arial', 14), fg='black', bg='#e0e0e0', relief='solid', bd=1)
         self.directbot_tab.pack(side='left', padx=2, pady=20, ipadx=25, ipady=10)
+    
+    def toggle_dropdown(self, event=None):
+        if self.dropdown_visible:
+            self.hide_dropdown()
+        else:
+            self.show_dropdown()
+    
+    def show_dropdown(self):
+        ldplayer_x = self.ldplayer_tab.winfo_rootx()
+        ldplayer_y = self.ldplayer_tab.winfo_rooty() + self.ldplayer_tab.winfo_height()
+        self.dropdown_menu.place(x=ldplayer_x - self.root.winfo_rootx(), y=ldplayer_y - self.root.winfo_rooty())
+        self.dropdown_visible = True
+    
+    def hide_dropdown(self):
+        self.dropdown_menu.place_forget()
+        self.dropdown_visible = False
+    
+    def on_click_outside(self, event):
+        if self.dropdown_visible:
+            widget = event.widget
+            if widget != self.ldplayer_tab and not self.is_child_of_dropdown(widget):
+                self.hide_dropdown()
+    
+    def is_child_of_dropdown(self, widget):
+        parent = widget
+        while parent:
+            if parent == self.dropdown_menu:
+                return True
+            parent = parent.master
+        return False
+    
+    def select_dropdown_option(self, option):
+        self.hide_dropdown()
+        if option == "Phone":
+            self.current_view = "phone"
+            self.show_phone_view()
+        elif option == "Emulator":
+            self.current_view = "emulator"
+            self.show_emulator_view()
+        elif option == "Trình duyệt":
+            self.current_view = "browser"
+            self.show_browser_view()
     
     def create_content_area(self):
         self.content_area = tk.Frame(self.right_frame, bg='white')
@@ -227,18 +275,6 @@ class MainWindow:
             widget.destroy()
         setting_label = tk.Label(self.content_area, text="SETTING PANEL", font=('Arial', 20, 'bold'), fg='black', bg='white')
         setting_label.pack(pady=50)
-    
-    def on_profile_selected(self, event):
-        selected = self.profile_var.get()
-        if selected == "Phone":
-            self.current_view = "phone"
-            self.show_phone_view()
-        elif selected == "Emulator":
-            self.current_view = "emulator"
-            self.show_emulator_view()
-        elif selected == "Trình duyệt":
-            self.current_view = "browser"
-            self.show_browser_view()
     
     def show_phone_view(self):
         for widget in self.content_area.winfo_children():

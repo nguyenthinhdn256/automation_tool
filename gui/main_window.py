@@ -10,6 +10,7 @@ class MainWindow:
         self.setup_widgets()
         self.current_view = "profiles"
         self.is_maximized = False
+        self.current_view = "profiles"
     
     def setup_window(self):
         self.root.title("")
@@ -21,13 +22,23 @@ class MainWindow:
         self.font_label = ('Arial', 16)
         self.font_combo = ('Arial', 14)
         self.font_text = ('Arial', 14)
+
+    def setup_treeview_style(self):
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        self.style.configure('Custom.Treeview', background='white', foreground='black', rowheight=25, fieldbackground='white', borderwidth=1, relief='solid')
+        self.style.configure('Custom.Treeview.Heading', background='#4a4a4a', foreground='white', font=('Arial', 10, 'bold'), borderwidth=1, relief='solid')
+        self.style.map('Custom.Treeview', background=[('selected', '#0078d4')])
+        self.style.map('Custom.Treeview.Heading', background=[('active', '#5a5a5a')])
+        self.style.layout('Custom.Treeview.Item', [('Treeitem.padding', {'children': [('Treeitem.indicator', {'side': 'left', 'sticky': ''}), ('Treeitem.image', {'side': 'left', 'sticky': ''}), ('Treeitem.text', {'side': 'left', 'sticky': ''}), ('Treeitem.border', {'side': 'right', 'sticky': 'ns', 'children': [('Treeitem.cell', {'sticky': 'nswe'})]})], 'sticky': 'nswe'})])
+        self.style.configure('Custom.Treeview.Item', borderwidth=1, relief='solid')
     
     def setup_widgets(self):
+        self.setup_treeview_style()
         self.create_custom_title_bar()
         self.create_main_container()
         self.create_left_panel()
         self.create_right_panel()
-        self.show_profiles_view()
         self.root.bind("<Button-1>", self.on_click_outside)
     
     def create_custom_title_bar(self):
@@ -140,19 +151,27 @@ class MainWindow:
         self.tab_header_frame = tk.Frame(self.right_frame, bg='#e0e0e0', height=80)
         self.tab_header_frame.pack(fill='x')
         self.tab_header_frame.pack_propagate(False)
-        self.ldplayer_tab = tk.Label(self.tab_header_frame, text="Emulator", font=('Arial', 14), fg='black', bg='white', relief='solid', bd=1, cursor="hand2")
-        self.ldplayer_tab.pack(side='left', padx=2, pady=20, ipadx=25, ipady=10)
+        
+        self.ldplayer_tab = tk.Label(self.tab_header_frame, text="Emulator", font=('Arial', 14), fg='black', bg='white', relief='solid', bd=1, cursor="hand2", width=12)
+        self.ldplayer_tab.pack(side='left', padx=2, pady=20, ipady=10)
         self.ldplayer_tab.bind("<Button-1>", self.toggle_dropdown)
+        
         self.dropdown_menu = tk.Frame(self.root, bg='white', relief='solid', bd=1)
         self.dropdown_visible = False
+        
         dropdown_options = ["Emulator", "Phone", "Trình duyệt"]
         for option in dropdown_options:
             option_btn = tk.Button(self.dropdown_menu, text=option, font=('Arial', 14), fg='black', bg='white', relief='flat', anchor='w', padx=20, pady=5, cursor="hand2", command=lambda opt=option: self.select_dropdown_option(opt))
             option_btn.pack(fill='x')
-            option_btn.bind("<Enter>", lambda e, btn=option_btn: btn.configure(bg='#e0e0e0'))
-            option_btn.bind("<Leave>", lambda e, btn=option_btn: btn.configure(bg='white'))
-        self.directbot_tab = tk.Label(self.tab_header_frame, text="DIRECTBOT", font=('Arial', 14), fg='black', bg='#e0e0e0', relief='solid', bd=1)
-        self.directbot_tab.pack(side='left', padx=2, pady=20, ipadx=25, ipady=10)
+            def on_option_enter(event, btn=option_btn):
+                btn.configure(bg='#e0e0e0')
+            def on_option_leave(event, btn=option_btn):
+                btn.configure(bg='white')
+            option_btn.bind("<Enter>", on_option_enter)
+            option_btn.bind("<Leave>", on_option_leave)
+        
+        self.directbot_tab = tk.Label(self.tab_header_frame, text="DIRECTBOT", font=('Arial', 14), fg='black', bg='#e0e0e0', relief='solid', bd=1, width=12)
+        self.directbot_tab.pack(side='left', padx=2, pady=20, ipady=10)
     
     def toggle_dropdown(self, event=None):
         if self.dropdown_visible:
@@ -213,29 +232,65 @@ class MainWindow:
     def show_profiles_view(self):
         self.clear_right_panel()
         self.create_profiles_tab_header()
-        self.create_profiles_content()
-    
-    def create_profiles_content(self):
         self.content_area = tk.Frame(self.right_frame, bg='white')
         self.content_area.pack(fill='both', expand=True, padx=5, pady=5)
         self.create_profile_table()
         self.create_bottom_controls()
-    
+        self.ldplayer_tab.configure(text="Emulator")
+     
     def create_profile_table(self):
         self.table_frame = tk.Frame(self.content_area, bg='white')
         self.table_frame.pack(fill='both', expand=True, padx=5, pady=5)
-        columns = ['Num', 'ProfileName', 'Title', 'IndexProfile']
-        self.tree = ttk.Treeview(self.table_frame, columns=columns, show='headings', height=15)
-        for col in columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=150, anchor='center')
+        
+        canvas = tk.Canvas(self.table_frame, bg='white')
+        scrollbar = ttk.Scrollbar(self.table_frame, orient='vertical', command=canvas.yview)
+        self.table_scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        self.table_scrollable_frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.create_window((0, 0), window=self.table_scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        self.table_headers = [("Num", 100), ("ProfileName", 200), ("Title", 200), ("IndexProfile", 150)]
+        self.table_rows = []
+        
+        # Tạo header
+        for col, (header_text, width) in enumerate(self.table_headers):
+            header_label = tk.Label(self.table_scrollable_frame, text=header_text, font=('Arial', 10, 'bold'), fg='white', bg='#4a4a4a', width=width//8, relief='solid', bd=1, anchor='center')
+            header_label.grid(row=0, column=col, sticky='ew')
+        
+        # Tạo sample data rows
         sample_data = [('1', 'MAX', 'MAX', '0'), ('2', 'MAX-1', 'MAX-1', '1'), ('3', 'MAX-2', 'MAX-2', '2'), ('4', 'MAX-3', 'MAX-3', '3'), ('5', 'MAX-4', 'MAX-4', '4'), ('6', 'MAX-5', 'MAX-5', '5')]
-        for data in sample_data:
-            self.tree.insert('', 'end', values=data)
-        scrollbar = ttk.Scrollbar(self.table_frame, orient='vertical', command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
-        self.tree.pack(side='left', fill='both', expand=True)
+        self.create_profile_rows(len(sample_data), sample_data)
+        
+        canvas.pack(side='left', fill='both', expand=True)
         scrollbar.pack(side='right', fill='y')
+
+    def create_profile_rows(self, row_count, data=None):
+        # Xóa các rows cũ trước
+        for widget in self.table_scrollable_frame.winfo_children():
+            if int(widget.grid_info()["row"]) > 0:
+                widget.destroy()
+        
+        # Reset table_rows để lưu trữ references
+        self.table_rows = []
+        
+        # Tạo rows mới dựa trên row_count
+        for row in range(1, row_count + 1):
+            if data:
+                cells = list(data[row-1])
+            else:
+                cells = ["", str(row), "", ""]
+            row_widgets = []
+            
+            for col, (cell_data, (_, width)) in enumerate(zip(cells, self.table_headers)):
+                bg_color = '#f9f9f9' if row % 2 == 0 else 'white'
+                cell_label = tk.Label(self.table_scrollable_frame, text=cell_data, font=('Arial', 9), bg=bg_color, fg="black", width=width//8, relief="solid", bd=1, anchor="center")
+                cell_label.grid(row=row, column=col, sticky="ew")
+                row_widgets.append(cell_label)
+            
+            # Lưu reference
+            self.table_rows.append(row_widgets)
+
     
     def create_bottom_controls(self):
         self.bottom_frame = tk.Frame(self.content_area, bg='white', height=50)
@@ -243,33 +298,174 @@ class MainWindow:
         self.bottom_frame.pack_propagate(False)
         page_label = tk.Label(self.bottom_frame, text="1/1", font=('Arial', 10), fg='black', bg='white')
         page_label.pack(side='left', padx=10, pady=10)
-        profiles_label = tk.Label(self.bottom_frame, text="Profiles / Trang:", font=('Arial', 10), fg='black', bg='white')
+        profiles_label = tk.Label(self.bottom_frame, text="Devices / Trang:", font=('Arial', 10), fg='black', bg='white')
         profiles_label.pack(side='left', padx=(20, 5), pady=10)
         page_combo = ttk.Combobox(self.bottom_frame, values=['20', '50', '100'], width=5, state='readonly')
         page_combo.pack(side='left', padx=5, pady=10)
         page_combo.set('20')
         sl_label = tk.Label(self.bottom_frame, text="SL: 6", font=('Arial', 10), fg='black', bg='white')
         sl_label.pack(side='left', padx=10, pady=10)
-        add_profile_btn = tk.Button(self.bottom_frame, text="Thêm Profile", font=('Arial', 10), bg='#4CAF50', fg='white', relief='flat', padx=15, pady=5)
+        add_profile_btn = tk.Button(self.bottom_frame, text="Thêm Devices", font=('Arial', 10), bg='#4CAF50', fg='white', relief='flat', padx=15, pady=5)
         add_profile_btn.pack(side='right', padx=10, pady=10)
+
+    def create_phone_table(self):
+        self.table_frame = tk.Frame(self.content_area, bg='white')
+        self.table_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        canvas = tk.Canvas(self.table_frame, bg='white')
+        scrollbar = ttk.Scrollbar(self.table_frame, orient='vertical', command=canvas.yview)
+        self.table_scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        self.table_scrollable_frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.create_window((0, 0), window=self.table_scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        self.table_headers = [("Num", 100), ("DeviceName", 200), ("PhoneModel", 200), ("Status", 150)]
+        self.table_rows = []
+        
+        # Tạo header
+        for col, (header_text, width) in enumerate(self.table_headers):
+            header_label = tk.Label(self.table_scrollable_frame, text=header_text, font=('Arial', 10, 'bold'), fg='white', bg='#4a4a4a', width=width//8, relief='solid', bd=1, anchor='center')
+            header_label.grid(row=0, column=col, sticky='ew')
+        
+        # Tạo sample data rows
+        sample_data = [('1', 'iPhone-01', 'iPhone 14', 'Connected'), ('2', 'Samsung-01', 'Galaxy S23', 'Offline'), ('3', 'Xiaomi-01', 'Mi 13', 'Connected')]
+        self.create_phone_rows(len(sample_data), sample_data)
+        
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+
+    def create_phone_rows(self, row_count, data=None):
+        # Xóa các rows cũ trước
+        for widget in self.table_scrollable_frame.winfo_children():
+            if int(widget.grid_info()["row"]) > 0:
+                widget.destroy()
+        
+        # Reset table_rows để lưu trữ references
+        self.table_rows = []
+        
+        # Tạo rows mới dựa trên row_count
+        for row in range(1, row_count + 1):
+            if data:
+                cells = list(data[row-1])
+            else:
+                cells = ["", str(row), "", ""]
+            row_widgets = []
+            
+            for col, (cell_data, (_, width)) in enumerate(zip(cells, self.table_headers)):
+                bg_color = '#f9f9f9' if row % 2 == 0 else 'white'
+                cell_label = tk.Label(self.table_scrollable_frame, text=cell_data, font=('Arial', 9), bg=bg_color, fg="black", width=width//8, relief="solid", bd=1, anchor="center")
+                cell_label.grid(row=row, column=col, sticky="ew")
+                row_widgets.append(cell_label)
+            
+            # Lưu reference
+            self.table_rows.append(row_widgets)
+
+    def create_phone_controls(self):
+        self.bottom_frame = tk.Frame(self.content_area, bg='white', height=50)
+        self.bottom_frame.pack(fill='x', side='bottom', padx=5, pady=5)
+        self.bottom_frame.pack_propagate(False)
+        page_label = tk.Label(self.bottom_frame, text="1/1", font=('Arial', 10), fg='black', bg='white')
+        page_label.pack(side='left', padx=10, pady=10)
+        devices_label = tk.Label(self.bottom_frame, text="Devices / Trang:", font=('Arial', 10), fg='black', bg='white')
+        devices_label.pack(side='left', padx=(20, 5), pady=10)
+        page_combo = ttk.Combobox(self.bottom_frame, values=['20', '50', '100'], width=5, state='readonly')
+        page_combo.pack(side='left', padx=5, pady=10)
+        page_combo.set('20')
+        sl_label = tk.Label(self.bottom_frame, text="SL: 3", font=('Arial', 10), fg='black', bg='white')
+        sl_label.pack(side='left', padx=10, pady=10)
+        add_device_btn = tk.Button(self.bottom_frame, text="Thêm Device", font=('Arial', 10), bg='#4CAF50', fg='white', relief='flat', padx=15, pady=5)
+        add_device_btn.pack(side='right', padx=10, pady=10)
     
+    def create_browser_table(self):
+        self.table_frame = tk.Frame(self.content_area, bg='white')
+        self.table_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        
+        canvas = tk.Canvas(self.table_frame, bg='white')
+        scrollbar = ttk.Scrollbar(self.table_frame, orient='vertical', command=canvas.yview)
+        self.table_scrollable_frame = tk.Frame(canvas, bg='white')
+        
+        self.table_scrollable_frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
+        canvas.create_window((0, 0), window=self.table_scrollable_frame, anchor='nw')
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        self.table_headers = [("Num", 100), ("BrowserName", 200), ("Version", 150), ("UserAgent", 200)]
+        self.table_rows = []
+        
+        # Tạo header
+        for col, (header_text, width) in enumerate(self.table_headers):
+            header_label = tk.Label(self.table_scrollable_frame, text=header_text, font=('Arial', 10, 'bold'), fg='white', bg='#4a4a4a', width=width//8, relief='solid', bd=1, anchor='center')
+            header_label.grid(row=0, column=col, sticky='ew')
+        
+        # Tạo sample data rows
+        sample_data = [('1', 'Chrome-01', 'v118.0', 'Windows 10'), ('2', 'Firefox-01', 'v119.0', 'macOS'), ('3', 'Edge-01', 'v118.0', 'Linux')]
+        self.create_browser_rows(len(sample_data), sample_data)
+        
+        canvas.pack(side='left', fill='both', expand=True)
+        scrollbar.pack(side='right', fill='y')
+
+    def create_browser_rows(self, row_count, data=None):
+        # Xóa các rows cũ trước
+        for widget in self.table_scrollable_frame.winfo_children():
+            if int(widget.grid_info()["row"]) > 0:
+                widget.destroy()
+        
+        # Reset table_rows để lưu trữ references
+        self.table_rows = []
+        
+        # Tạo rows mới dựa trên row_count
+        for row in range(1, row_count + 1):
+            if data:
+                cells = list(data[row-1])
+            else:
+                cells = ["", str(row), "", ""]
+            row_widgets = []
+            
+            for col, (cell_data, (_, width)) in enumerate(zip(cells, self.table_headers)):
+                bg_color = '#f9f9f9' if row % 2 == 0 else 'white'
+                cell_label = tk.Label(self.table_scrollable_frame, text=cell_data, font=('Arial', 9), bg=bg_color, fg="black", width=width//8, relief="solid", bd=1, anchor="center")
+                cell_label.grid(row=row, column=col, sticky="ew")
+                row_widgets.append(cell_label)
+            
+            # Lưu reference
+            self.table_rows.append(row_widgets)
+
+    def create_browser_controls(self):
+        self.bottom_frame = tk.Frame(self.content_area, bg='white', height=50)
+        self.bottom_frame.pack(fill='x', side='bottom', padx=5, pady=5)
+        self.bottom_frame.pack_propagate(False)
+        page_label = tk.Label(self.bottom_frame, text="1/1", font=('Arial', 10), fg='black', bg='white')
+        page_label.pack(side='left', padx=10, pady=10)
+        browsers_label = tk.Label(self.bottom_frame, text="Browsers / Trang:", font=('Arial', 10), fg='black', bg='white')
+        browsers_label.pack(side='left', padx=(20, 5), pady=10)
+        page_combo = ttk.Combobox(self.bottom_frame, values=['20', '50', '100'], width=5, state='readonly')
+        page_combo.pack(side='left', padx=5, pady=10)
+        page_combo.set('20')
+        sl_label = tk.Label(self.bottom_frame, text="SL: 3", font=('Arial', 10), fg='black', bg='white')
+        sl_label.pack(side='left', padx=10, pady=10)
+        add_browser_btn = tk.Button(self.bottom_frame, text="Thêm Browser", font=('Arial', 10), bg='#4CAF50', fg='white', relief='flat', padx=15, pady=5)
+        add_browser_btn.pack(side='right', padx=10, pady=10)
+
     def show_phone_content(self):
-        for widget in self.content_area.winfo_children():
-            widget.destroy()
-        phone_label = tk.Label(self.content_area, text="PHONE AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        phone_label.pack(expand=True)
+        if hasattr(self, 'content_area'):
+            for widget in self.content_area.winfo_children():
+                widget.destroy()
+            self.create_phone_table()
+            self.create_phone_controls()
     
     def show_emulator_content(self):
-        for widget in self.content_area.winfo_children():
-            widget.destroy()
-        emulator_label = tk.Label(self.content_area, text="EMULATOR AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        emulator_label.pack(expand=True)
+        if hasattr(self, 'content_area'):
+            for widget in self.content_area.winfo_children():
+                widget.destroy()
+            self.create_profile_table()
+            self.create_bottom_controls()
     
     def show_browser_content(self):
-        for widget in self.content_area.winfo_children():
-            widget.destroy()
-        browser_label = tk.Label(self.content_area, text="BROWSER AUTOMATION", font=('Arial', 20, 'bold'), fg='black', bg='white')
-        browser_label.pack(expand=True)
+        if hasattr(self, 'content_area'):
+            for widget in self.content_area.winfo_children():
+                widget.destroy()
+            self.create_browser_table()
+            self.create_browser_controls()
     
     def show_auto_view(self):
         self.clear_right_panel()
